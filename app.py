@@ -1,120 +1,149 @@
 import gradio as gr
 from dotenv import load_dotenv
+from build_graph import StudentAssessment
+from user_input_parser import extract_subjects_from_pdf
 import asyncio
-import json
-import os
-from backend import Augumented_Agent
-from langchain_core.messages import HumanMessage, AIMessage
 
-# Load environment variables from .env if it exists
 load_dotenv(override=True)
 
-# Global dictionary to store user states and agents
-user_states = {}
+# Global variable to store the agent instance
+agent = None
+# Debug counter
+call_counter = 0
 
-def blank_state():
-    return {
-        "agent": None,
-    }
+async def setup_agent():
+    """Initialize the agent once when the app starts."""
+    global agent
+    if agent is None:
+        agent = StudentAssessment()
+    return agent
 
-async def chat(message, history, request: gr.Request):
-    session_hash = request.session_hash
+async def process_pdf(pdf_path, grade_input, student_name_input):
+    """Process the uploaded PDF and generate assessment, yielding status updates."""
+    global call_counter
+    call_counter += 1
+    print(f"=== process_pdf called #{call_counter} ===")
     
-    # Initialize user state if not exists
-    if session_hash not in user_states:
-        user_states[session_hash] = blank_state()
-        
-        # Initialize the agent without memory (stateless)
-        agent = Augumented_Agent()
-        await agent.setup()
-        
-        user_states[session_hash]["agent"] = agent
+    if not pdf_path:
+        yield "Please upload a PDF file."
+        return
     
-    state = user_states[session_hash]
-    agent = state["agent"]
+    if not grade_input:
+        yield "Please enter the student's grade level."
+        return
+
+    if not student_name_input:
+        yield "Please enter the student's name."
+        return
     
     try:
-        # Convert history to messages format
-        messages = []
-        if history:
-            for entry in history:
-                if isinstance(entry, (list, tuple)) and len(entry) == 2:
-                    human, ai = entry
-                    if human:
-                        messages.append(HumanMessage(content=human))
-                    if ai:
-                        messages.append(AIMessage(content=ai))
-                elif isinstance(entry, dict):
-                    if entry.get('role') == 'user':
-                        messages.append(HumanMessage(content=entry.get('content', '')))
-                    elif entry.get('role') == 'assistant':
-                        messages.append(AIMessage(content=entry.get('content', '')))
+        yield "⏳ Parsing PDF and extracting subject data..."
         
-        # Add current message
-        messages.append(HumanMessage(content=message))
+        # This is now the pre-processing step, handled by the front-end
+        subjects = await extract_subjects_from_pdf(pdf_path)
+
+        if not subjects:
+            yield "Could not process the PDF. Please ensure it contains valid data and subject scores."
+            return
         
-        # Collect the complete response first
-        complete_response = ""
-        async for event in agent.graph.astream(
-            {'messages': messages}
-        ):
-            for step_key, step_value in event.items():
-                if isinstance(step_value, dict) and "messages" in step_value:
-                    latest_message = step_value['messages'][-1]
-                    if hasattr(latest_message, 'content') and latest_message.content:
-                        complete_response = latest_message.content
+        yield f"✅ Extracted {len(subjects)} subjects. Initializing assessment agent..."
         
-        # Only yield the final, complete response
-        if complete_response:
-            yield complete_response
+        # The agent is now initialized with clean data
+        agent = StudentAssessment()
+        
+        yield "🔄 **Processing Assessment:** This may take a moment as we analyze performance data and generate your comprehensive report..."
+        
+        result = await agent.run(student_performance_data=subjects, grade=grade_input, student_name=student_name_input)
+        
+        if result and "messages" in result and result["messages"]:
+            final_message = result["messages"][-1]
+            if hasattr(final_message, 'content'):
+                yield final_message.content
+            else:
+                yield "Assessment complete, but no content was generated."
         else:
-            yield "I couldn't generate a response. Please try again."
-            
+            yield "The assessment could not be completed."
+        
     except Exception as e:
-        yield f"Sorry, I encountered an error: {str(e)}"
+        import traceback
+        traceback.print_exc()
+        yield f"An error occurred: {str(e)}"
+
+def lock_ui():
+    """Disables input controls and shows the stop button."""
+    return [
+        gr.File(interactive=False),
+        gr.Dropdown(interactive=False),
+        gr.Textbox(interactive=False),
+        gr.Button(interactive=False),
+        gr.Button("Stop", variant="stop", visible=True, interactive=True),
+    ]
+
+def unlock_ui():
+    """Re-enables input controls and hides the stop button."""
+    return [
+        gr.File(interactive=True),
+        gr.Dropdown(interactive=True),
+        gr.Textbox(interactive=True),
+        gr.Button(interactive=True),
+        gr.Button("Stop", variant="stop", visible=False, interactive=False),
+    ]
+
+def create_interface():
+    """Creates the Gradio interface."""
+    grade_levels = [str(i) for i in range(1, 13)]
+    grade_levels.insert(0, "K")
+    grade_levels.append("HS")
+
+    with gr.Blocks(title="Student Assessment Analyzer", theme=gr.themes.Soft()) as demo:
+        gr.Markdown("# 📊 Student Assessment Analyzer")
+        gr.Markdown("Upload a student's IXL Diagnostic Report PDF and select their grade to get a comprehensive assessment analysis.")
+        
+        with gr.Row():
+            with gr.Column(scale=1):
+                pdf_input = gr.File(label="1. Upload PDF Report", file_types=[".pdf"], type="filepath")
+                grade_input = gr.Dropdown(grade_levels, label="2. Select Student Grade", info="Please select the student's grade level.")
+                student_name_input = gr.Textbox(label="3. Enter Student Name", info="e.g., Daniel S.")
+                with gr.Row():
+                    analyze_btn = gr.Button("Analyze Report", variant="primary", interactive=False)
+                    stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False)
+                
+                gr.Markdown("""
+                **Instructions:**
+                The "Analyze Report" button will activate once you upload a PDF, select a grade, and enter a name.
+                """)
+            
+            with gr.Column(scale=2):
+                output = gr.Markdown(label="Assessment Results", value="Upload a PDF and select a grade to see the assessment results.")
+        
+        interactive_comps = [pdf_input, grade_input, student_name_input, analyze_btn, stop_btn]
+
+        def update_analyze_button_state(pdf, grade, name):
+            return gr.Button(interactive=(pdf is not None and grade is not None and name))
+
+        pdf_input.upload(update_analyze_button_state, [pdf_input, grade_input, student_name_input], analyze_btn)
+        grade_input.change(update_analyze_button_state, [pdf_input, grade_input, student_name_input], analyze_btn)
+        student_name_input.change(update_analyze_button_state, [pdf_input, grade_input, student_name_input], analyze_btn)
+
+        analysis_run = analyze_btn.click(fn=lock_ui, outputs=interactive_comps).then(
+            fn=process_pdf,
+            inputs=[pdf_input, grade_input, student_name_input],
+            outputs=[output]
+        ).then(
+            fn=unlock_ui, outputs=interactive_comps
+        )
+        
+        stop_btn.click(fn=lambda: unlock_ui(), outputs=interactive_comps, cancels=[analysis_run])
+
+        gr.Examples(
+            examples=[["assets/IXL-Diagnostic-Report_2025-06-20_Daniel.pdf", "4", "Daniel S."]],
+            inputs=[pdf_input, grade_input, student_name_input],
+            cache_examples=False,
+            label="Example Reports"
+        )
     
-    return
-
-# Set up the theme
-theme = gr.themes.Soft(
-    primary_hue="green",
-    secondary_hue="green",
-    neutral_hue="gray",
-    font=gr.themes.GoogleFont("Open Sans")
-)
-
-# Create the Gradio interface with markdown enabled
-with gr.Blocks(theme=theme) as demo:
-    gr.ChatInterface(
-        fn=chat,
-        title="AI Assistant",
-        description="AI assistant with web search, Wikipedia, and memory. Ask me anything!",
-        examples=[
-            "What's the latest news about artificial intelligence?",
-            "Tell me about quantum computing",
-            "What's the weather like in New York?",
-            "Who is Elon Musk?",
-            "What are the benefits of meditation?"
-        ],
-        chatbot=gr.Chatbot(
-            render_markdown=True,
-            height=600,
-            show_copy_button=True,
-            latex_delimiters=[],
-            type="messages"
-        ),
-        css=".examples-table {border-radius: 8px !important; border: 1px solid rgba(128, 128, 128, 0.2) !important; padding: 10px !important; margin: 10px 0 !important;} .examples-table button {background-color: #2c2c2c !important; border: 1px solid #404040 !important; border-radius: 4px !important; margin: 4px !important; padding: 8px 16px !important; box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;}"
-    )
+    return demo
 
 if __name__ == "__main__":
-    # Check if running on Hugging Face Spaces
-    if os.environ.get("SPACE_ID"):
-        demo.launch()
-    else:
-        # Local development settings
-        demo.launch(
-            server_name="0.0.0.0",  # Allows external access
-            server_port=7860,       # Default Gradio port
-            share=False,            # Set to True if you want to generate a public link
-            debug=True
-        )
+    demo = create_interface()
+    demo.launch()
