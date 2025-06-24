@@ -24,12 +24,12 @@ def sanitize_tool_name(tool):
 
 def calculate_percentile(subject: str, student_score: int, current_grade: str) -> str:
     """Calculates the exact percentile for a given score, subject, and grade.
-
+    
     Args:
         subject: The official subject name from the benchmark data (e.g., 'End-of-Year Math: Overall (K-8)').
         student_score: The student's numerical score in the specified subject.
         current_grade: The student's current grade level as a string (e.g., '4').
-
+        
     Returns:
         A string representing the calculated percentile (e.g., "75th percentile").
     """
@@ -44,7 +44,7 @@ def calculate_percentile(subject: str, student_score: int, current_grade: str) -
 
         if subject_grade_data.empty:
             return f"No data found for Subject '{subject}' and Grade '{current_grade}'"
-
+        
         # Find all percentiles where the student's score is >= the benchmark score
         qualifying_percentiles = subject_grade_data[subject_grade_data['Score'] <= student_score]
 
@@ -65,12 +65,12 @@ def calculate_performing_grade(subject: str, student_score: int, current_grade: 
 
     This is determined by finding the highest grade where the student's score
     meets or exceeds the 85th percentile benchmark for that grade.
-
+    
     Args:
         subject: The official subject name from the benchmark data.
         student_score: The student's numerical score in the specified subject.
         current_grade: The student's current grade level as a string.
-
+        
     Returns:
         A string representing the student's performing grade level (e.g., '5th Grade').
     """
@@ -94,7 +94,7 @@ def calculate_performing_grade(subject: str, student_score: int, current_grade: 
         grade_order = ['K'] + [str(i) for i in range(1, 13)]
         benchmark_data['Grade'] = pd.Categorical(benchmark_data['Grade'], categories=grade_order, ordered=True)
         benchmark_data = benchmark_data.sort_values('Grade')
-
+        
         # Find the highest grade where the student's score meets or exceeds the benchmark
         performing_grade = current_grade # Default to current grade
         for _, row in benchmark_data.iterrows():

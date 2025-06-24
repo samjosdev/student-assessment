@@ -16,6 +16,7 @@ async def setup_agent():
     global agent
     if agent is None:
         agent = StudentAssessment()
+        await agent.setup_graph()
     return agent
 
 async def process_pdf(pdf_path, grade_input, student_name_input):
@@ -31,7 +32,7 @@ async def process_pdf(pdf_path, grade_input, student_name_input):
     if not grade_input:
         yield "Please enter the student's grade level."
         return
-
+    
     if not student_name_input:
         yield "Please enter the student's name."
         return
@@ -95,8 +96,61 @@ def create_interface():
     grade_levels.insert(0, "K")
     grade_levels.append("HS")
 
-    with gr.Blocks(title="Student Assessment Analyzer", theme=gr.themes.Soft()) as demo:
-        gr.Markdown("# 📊 Student Assessment Analyzer")
+    custom_css = """
+    body { background: linear-gradient(135deg, #f8fafc 0%, #e3e9f3 100%); font-family: 'Inter', Arial, sans-serif; }
+    .gradio-container { background: none !important; }
+    .gr-box, .gr-panel, .gr-form, .gr-form-section, .gr-form-row, .gr-form-col, .gr-form-group, .gr-form-input, .gr-form-output {
+        background: #fff !important;
+        border-radius: 18px !important;
+        box-shadow: 0 4px 24px 0 rgba(80, 80, 120, 0.08) !important;
+        padding: 32px 32px 24px 32px !important;
+        margin-bottom: 32px !important;
+        border: none !important;
+    }
+    .gr-button, button, input[type="submit"] {
+        background: linear-gradient(135deg, #667eea 0%, #7ed957 100%) !important;
+        color: #fff !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        font-size: 1.1em !important;
+        padding: 12px 28px !important;
+        border: none !important;
+        box-shadow: 0 2px 8px 0 rgba(80, 80, 120, 0.08) !important;
+        transition: background 0.2s;
+    }
+    .gr-button:hover, button:hover, input[type="submit"]:hover {
+        background: linear-gradient(135deg, #7ed957 0%, #667eea 100%) !important;
+    }
+    .gr-upload, .gr-file, .gr-input, .gr-output {
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px 0 rgba(80, 80, 120, 0.04) !important;
+        background: #f8f9fa !important;
+        border: 1px solid #e3e9f3 !important;
+    }
+    .gr-markdown, .gr-html, .gr-output-html {
+        background: none !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    .gr-input-label, .gr-form-label {
+        color: #667eea !important;
+        font-weight: 700 !important;
+        font-size: 1.08em !important;
+        background: none !important;
+        margin-bottom: 4px !important;
+        letter-spacing: 0.01em;
+    }
+    .gr-info {
+        color: #888fd6 !important;
+        font-size: 0.98em !important;
+        font-weight: 500 !important;
+        background: none !important;
+    }
+    """
+
+    with gr.Blocks(title="Student Assessment Analyzer", theme=gr.themes.Soft(), css=custom_css) as demo:
+        gr.Markdown("# Student Assessment Analyzer")
         gr.Markdown("Upload a student's IXL Diagnostic Report PDF and select their grade to get a comprehensive assessment analysis.")
         
         with gr.Row():
@@ -114,7 +168,7 @@ def create_interface():
                 """)
             
             with gr.Column(scale=2):
-                output = gr.Markdown(label="Assessment Results", value="Upload a PDF and select a grade to see the assessment results.")
+                output = gr.HTML(label="Assessment Results", value="Upload a PDF and select a grade to see the assessment results.")
         
         interactive_comps = [pdf_input, grade_input, student_name_input, analyze_btn, stop_btn]
 

@@ -1,3 +1,9 @@
+---
+title: student_assessment
+app_file: app.py
+sdk: gradio
+sdk_version: 5.34.2
+---
 # Student Assessment Analyzer 📊
 
 An intelligent web application that analyzes student diagnostic reports (specifically IXL Diagnostic Reports) and generates comprehensive assessment summaries with percentile rankings, performance bands, and actionable recommendations.
