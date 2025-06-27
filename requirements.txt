@@ -14,6 +14,5 @@ langchain-openai
 langgraph.checkpoint.sqlite
 PyMuPDF
 paddlepaddle
-paddleocr
 Pillow
-opencv-python
+pdfkit

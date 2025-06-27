@@ -8,10 +8,9 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
             <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                 <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Subject</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Score</th>
-                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Performance Band</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Performing Grade</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Percentile</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Next Grade Threshold</th>
-                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Performing Grade</th>
                 <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Recommended Skills</th>
             </tr>
         </thead>
@@ -19,13 +18,29 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
     """
     
     for row in report.performance_dashboard.table_rows:
-        # Determine background color for performance band
-        band_color = "#C8E6C9"  # Default green
-        if "On Grade Level" in row.performance_band:
-            band_color = "#FFF9C4"  # Yellow
-        elif "Below Grade Level" in row.performance_band:
-            band_color = "#FFCDD2"  # Red
-        
+        # Calculate color based on performing_grade vs student grade
+        try:
+            # Convert student grade to number (handle K as 0)
+            student_grade_num = 0 if grade.upper() == 'K' else int(grade)
+            # Extract performing grade number from the performing_grade text
+            import re
+            pg_text = row.performing_grade.lower()
+            match = re.search(r'(\d+)(?:st|nd|rd|th)?\s*grade', pg_text)
+            if match:
+                performing_grade_num = int(match.group(1))
+            elif 'k' in pg_text:
+                performing_grade_num = 0
+            else:
+                performing_grade_num = student_grade_num  # fallback
+            # Determine color
+            if performing_grade_num > student_grade_num:
+                band_color = "#C8E6C9"  # Green
+            elif performing_grade_num == student_grade_num:
+                band_color = "#FFF9C4"  # Yellow
+            else:
+                band_color = "#FFCDD2"  # Red
+        except Exception:
+            band_color = "#C8E6C9"  # fallback
         # Format recommended skills
         skills_html = ""
         if row.recommended_skills:
@@ -35,15 +50,13 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
             skills_html += "</ul>"
         else:
             skills_html = "<em>No specific recommendations</em>"
-        
         dashboard_html += f"""
             <tr style="border-bottom: 1px solid #ddd;">
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">{row.subject_name}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">{row.score}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: {band_color};">{row.performance_band}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: {band_color};">{row.performing_grade}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">{row.percentile}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">{row.next_grade_threshold}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">{row.performing_grade}</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">{skills_html}</td>
             </tr>
         """
@@ -68,6 +81,43 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
     if 'ixl.com/materials/us/research/national_norms_for_ixl_s_diagnostic_in_grades_k-12.pdf' not in methodology_html.lower():
         methodology_html += f"<br><br>{required_citation}"
     
+    # Render Key Findings as colored cards with bulleted lists from JSON structure
+    import json
+    key_findings_html = ''
+    try:
+        key_findings_data = report.key_findings
+        if isinstance(key_findings_data, str):
+            key_findings_data = json.loads(key_findings_data) if key_findings_data.strip() else {}
+        if key_findings_data:
+            group_styles = {
+                'above_grade_level': ('Above Grade Level', '#d4edda'),
+                'on_grade_level': ('On Grade Level', '#fff3cd'),
+                'below_grade_level': ('Below Grade Level', '#f8d7da'),
+            }
+            for group, (label, color) in group_styles.items():
+                subjects = key_findings_data.get(group, [])
+                if subjects:
+                    key_findings_html += f"""
+                    <div style='background: {color}; border-radius: 8px; padding: 16px; margin-bottom: 12px;'>
+                        <strong>{label}:</strong>
+                        <ul style='margin: 8px 0 0 18px;'>
+                            {''.join(f'<li>{s}</li>' for s in subjects)}
+                        </ul>
+                    </div>
+                    """
+    except Exception:
+        key_findings_html = ''
+
+    # Only render the section if there is content
+    key_findings_section = ''
+    if key_findings_html.strip():
+        key_findings_section = f"""
+        <div style="background: #fff; padding: 28px; border-radius: 12px; box-shadow: 0 2px 8px 0 rgba(80, 80, 120, 0.04); margin-bottom: 28px;">
+          <h2 style="color: #2c3e50; border-bottom: 2px solid #7ed957; padding-bottom: 10px; font-size: 1.4em; font-weight: 700; margin: 0 0 18px 0;">⭐ Key Findings</h2>
+          {key_findings_html}
+        </div>
+        """
+
     return f"""
     <div style="background: linear-gradient(135deg, #f8fafc 0%, #e3e9f3 100%); min-height: 100vh; padding: 40px 0;">
       <div style="max-width: 1200px; margin: 0 auto;">
@@ -83,8 +133,7 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
 
           <!-- Main sections, all aligned, no extra wrappers -->
           <div style="background: #fff; padding: 28px; border-radius: 12px; box-shadow: 0 2px 8px 0 rgba(80, 80, 120, 0.04); margin-bottom: 28px;">
-            <h2 style="color: #2c3e50; border-bottom: 2px solid #7ed957; padding-bottom: 10px; font-size: 1.4em; font-weight: 700; margin: 0 0 18px 0;">⭐ Key Findings</h2>
-            {report.key_findings}
+            {key_findings_section}
           </div>
           <div style="background: #fff; padding: 28px; border-radius: 12px; box-shadow: 0 2px 8px 0 rgba(80, 80, 120, 0.04); margin-bottom: 28px;">
             <h2 style="color: #2c3e50; border-bottom: 2px solid #7ed957; padding-bottom: 10px; font-size: 1.4em; font-weight: 700; margin: 0 0 18px 0;">1. Overview</h2>

@@ -2,7 +2,7 @@
 title: student_assessment
 app_file: app.py
 sdk: gradio
-sdk_version: 5.34.2
+sdk_version: 5.33.0
 ---
 # Student Assessment Analyzer 📊
 

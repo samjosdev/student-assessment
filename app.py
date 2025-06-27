@@ -1,10 +1,9 @@
 import gradio as gr
-from dotenv import load_dotenv
 from build_graph import StudentAssessment
-from user_input_parser import extract_subjects_from_pdf
 import asyncio
+import tempfile
+import os
 
-load_dotenv(override=True)
 
 # Global variable to store the agent instance
 agent = None
@@ -19,6 +18,14 @@ async def setup_agent():
         await agent.setup_graph()
     return agent
 
+def save_html_report(html_content, input_pdf_path):
+    base = os.path.splitext(os.path.basename(input_pdf_path))[0]
+    out_name = f"{base}_studentassessmentreport.html"
+    out_path = os.path.join(tempfile.gettempdir(), out_name)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    return out_path
+
 async def process_pdf(pdf_path, grade_input, student_name_input):
     """Process the uploaded PDF and generate assessment, yielding status updates."""
     global call_counter
@@ -26,49 +33,45 @@ async def process_pdf(pdf_path, grade_input, student_name_input):
     print(f"=== process_pdf called #{call_counter} ===")
     
     if not pdf_path:
-        yield "Please upload a PDF file."
+        yield "Please upload a PDF file.", gr.update(visible=False)
         return
     
     if not grade_input:
-        yield "Please enter the student's grade level."
+        yield "Please enter the student's grade level.", gr.update(visible=False)
         return
     
     if not student_name_input:
-        yield "Please enter the student's name."
+        yield "Please enter the student's name.", gr.update(visible=False)
         return
     
     try:
-        yield "⏳ Parsing PDF and extracting subject data..."
+        yield "⏳ Initializing assessment agent...", gr.update(visible=False)
         
-        # This is now the pre-processing step, handled by the front-end
-        subjects = await extract_subjects_from_pdf(pdf_path)
-
-        if not subjects:
-            yield "Could not process the PDF. Please ensure it contains valid data and subject scores."
-            return
-        
-        yield f"✅ Extracted {len(subjects)} subjects. Initializing assessment agent..."
-        
-        # The agent is now initialized with clean data
+        # The agent will handle PDF parsing internally via the user_input_parser node
         agent = StudentAssessment()
+        await agent.setup_graph()
         
-        yield "🔄 **Processing Assessment:** This may take a moment as we analyze performance data and generate your comprehensive report..."
+        yield "🔄 **Processing Assessment:** This may take a moment as we parse the PDF and analyze performance data...", gr.update(visible=False)
         
-        result = await agent.run(student_performance_data=subjects, grade=grade_input, student_name=student_name_input)
+        # Pass the PDF path directly to the agent - it will handle parsing internally
+        result = await agent.run_from_pdf(pdf_path=pdf_path, grade=grade_input, student_name=student_name_input)
         
         if result and "messages" in result and result["messages"]:
             final_message = result["messages"][-1]
             if hasattr(final_message, 'content'):
-                yield final_message.content
+                html_report = final_message.content
+                html_file_path = save_html_report(html_report, pdf_path)
+                # Yield the HTML report and the file path for gr.File (download button)
+                yield html_report, gr.update(value=html_file_path, visible=True)
             else:
-                yield "Assessment complete, but no content was generated."
+                yield "Assessment complete, but no content was generated.", gr.update(visible=False)
         else:
-            yield "The assessment could not be completed."
+            yield "The assessment could not be completed.", gr.update(visible=False)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
-        yield f"An error occurred: {str(e)}"
+        yield f"An error occurred: {str(e)}", gr.update(visible=False)
 
 def lock_ui():
     """Disables input controls and shows the stop button."""
@@ -92,10 +95,7 @@ def unlock_ui():
 
 def create_interface():
     """Creates the Gradio interface."""
-    grade_levels = [str(i) for i in range(1, 13)]
-    grade_levels.insert(0, "K")
-    grade_levels.append("HS")
-
+    grade_levels = [str(i) for i in range(1, 9)]
     custom_css = """
     body { background: linear-gradient(135deg, #f8fafc 0%, #e3e9f3 100%); font-family: 'Inter', Arial, sans-serif; }
     .gradio-container { background: none !important; }
@@ -168,7 +168,9 @@ def create_interface():
                 """)
             
             with gr.Column(scale=2):
-                output = gr.HTML(label="Assessment Results", value="Upload a PDF and select a grade to see the assessment results.")
+                output_html = gr.HTML(label="Assessment Results")
+                # Use gr.File for download, label as 'Download Report', and make visible only when ready
+                download_html = gr.File(label="Download Report", visible=False)
         
         interactive_comps = [pdf_input, grade_input, student_name_input, analyze_btn, stop_btn]
 
@@ -179,10 +181,10 @@ def create_interface():
         grade_input.change(update_analyze_button_state, [pdf_input, grade_input, student_name_input], analyze_btn)
         student_name_input.change(update_analyze_button_state, [pdf_input, grade_input, student_name_input], analyze_btn)
 
-        analysis_run = analyze_btn.click(fn=lock_ui, outputs=interactive_comps).then(
+        analysis_run = analyze_btn.click(
             fn=process_pdf,
             inputs=[pdf_input, grade_input, student_name_input],
-            outputs=[output]
+            outputs=[output_html, download_html]
         ).then(
             fn=unlock_ui, outputs=interactive_comps
         )
@@ -197,6 +199,12 @@ def create_interface():
         )
     
     return demo
+
+def html_to_pdf(html_content):
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
+        HTML(string=html_content).write_pdf(tmpfile.name)
+        return tmpfile.name
 
 if __name__ == "__main__":
     demo = create_interface()

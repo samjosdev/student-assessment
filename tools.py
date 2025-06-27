@@ -1,25 +1,7 @@
-from langchain.tools import StructuredTool
 import re
-from pydantic import BaseModel, Field
 import pandas as pd
 from grade_reader import get_grade_data
 import traceback
-
-
-class PercentileCalculationTool(BaseModel):
-    subject: str = Field(description="The subject name (e.g., 'Math', 'Language Arts')")
-    student_score: int = Field(description="The student's score")
-    current_grade: str = Field(description="The student's current grade level (e.g., 'K', '1', '12')")
-
-class PerformingGradeCalculationTool(BaseModel):
-    subject: str = Field(description="The subject name (e.g., 'Math', 'Language Arts')")
-    student_score: int = Field(description="The student's score")
-    current_grade: str = Field(description="The student's current grade level")
-
-#Sanitize tool names to avoid errors
-def sanitize_tool_name(tool):
-    tool.name = re.sub(r"[^a-zA-Z0-9_]", "_", tool.name)
-    return tool
 
 
 def calculate_percentile(subject: str, student_score: int, current_grade: str) -> str:
@@ -64,7 +46,7 @@ def calculate_performing_grade(subject: str, student_score: int, current_grade: 
     """Calculates the highest grade level at which the student is performing.
 
     This is determined by finding the highest grade where the student's score
-    meets or exceeds the 85th percentile benchmark for that grade.
+    meets or exceeds the 80th percentile benchmark for that grade.
     
     Args:
         subject: The official subject name from the benchmark data.
@@ -148,22 +130,30 @@ def calculate_next_grade_threshold(subject: str, current_grade: str) -> str:
         traceback.print_exc()
         return f"Error calculating next grade threshold: {str(e)}"
 
-async def other_tools():
+def calculate_all_metrics(subject: str, student_score: int, current_grade: str) -> str:
+    """Calculates percentile, performing grade, and next grade threshold for a subject in one call.
     
-    # Add new calculation tools
-    percentile_tool = StructuredTool(
-        name="calculate_percentile",
-        func=calculate_percentile,
-        description="Calculate the exact percentile for a student's score using the master grade data DataFrame. Returns the highest percentile where student_score >= that percentile's benchmark.",
-        args_schema=PercentileCalculationTool
-    )
-    
-    performing_grade_tool = StructuredTool(
-        name="calculate_performing_grade", 
-        func=calculate_performing_grade,
-        description="Calculate the highest performing grade level using the 85th percentile threshold from the master grade data. Returns the highest grade where student_score >= 85th percentile of that grade's benchmark.",
-        args_schema=PerformingGradeCalculationTool
-    )
-    
-    all_tools = [percentile_tool, performing_grade_tool]
-    return [sanitize_tool_name(tool) for tool in all_tools]
+    Args:
+        subject: The official subject name from the benchmark data.
+        student_score: The student's numerical score in the specified subject.
+        current_grade: The student's current grade level as a string.
+        
+    Returns:
+        A string with all three metrics: percentile, performing grade, and next grade threshold.
+    """
+    try:
+        # Call all three existing functions
+        percentile = calculate_percentile(subject, student_score, current_grade)
+        performing_grade = calculate_performing_grade(subject, student_score, current_grade)
+        next_threshold = calculate_next_grade_threshold(subject, current_grade)
+        
+        # Format the combined result
+        result = f"Subject: {subject}\n"
+        result += f"Percentile: {percentile}\n"
+        result += f"Performing Grade: {performing_grade}\n"
+        result += f"Next Grade Threshold: {next_threshold}"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error calculating all metrics: {str(e)}"
