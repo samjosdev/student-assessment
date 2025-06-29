@@ -1,279 +1,256 @@
----
-title: student_assessment
-app_file: app.py
-sdk: gradio
-sdk_version: 5.33.0
----
-# Student Assessment Analyzer 📊
+# Student Assessment Analyzer
 
-An intelligent web application that analyzes student diagnostic reports (specifically IXL Diagnostic Reports) and generates comprehensive assessment summaries with percentile rankings, performance bands, and actionable recommendations.
+A comprehensive web application that analyzes IXL Diagnostic Report PDFs and generates detailed student performance assessments with grade-level comparisons, percentile rankings, and actionable recommendations.
 
-## Features ✨
+## 🌟 Features
 
-- **Multi-Strategy PDF Parsing**: Uses PyMuPDF, OCR (PaddleOCR), and LlamaParse for maximum accuracy
-- **Intelligent Subject Mapping**: Automatically maps extracted subjects to standardized categories
-- **Percentile Calculations**: Accurate percentile rankings based on national grade-level benchmarks
-- **Performance Dashboard**: Visual HTML table showing scores, performance bands, and recommendations
-- **Grade-Level Analysis**: Determines actual performing grade level vs. current grade
-- **Actionable Insights**: Specific skill recommendations and next steps
+- **PDF Processing**: Automated parsing of IXL Diagnostic Report PDFs using multiple extraction methods
+- **Performance Analysis**: Calculates percentiles, performing grade levels, and next grade thresholds
+- **Interactive Dashboard**: Clean, responsive web interface built with Gradio
+- **Comprehensive Reports**: HTML reports with performance dashboards, key findings, and recommendations
+- **Grade-Level Benchmarking**: Compares student performance against national grade-level standards
+- **Downloadable Reports**: Export assessment reports as HTML files
 
-## Architecture 🏗️
+## 🏗️ Architecture
 
-The application uses a **LangGraph-based agent system** with the following components:
+The application uses a graph-based agent architecture powered by LangGraph:
 
-### Core Components
+1. **User Input Parser**: Extracts text from PDF using PyMuPDF and LlamaParse
+2. **Subject Mapping**: Maps extracted subjects to official benchmark subjects
+3. **Assessment Node**: Coordinates performance calculations using tools
+4. **Tool Execution**: Calculates percentiles, performing grades, and thresholds
+5. **Synthesis**: Generates comprehensive HTML assessment reports
 
-- **Web Interface** (`app.py`): Gradio-based UI for file upload and results display
-- **PDF Parser** (`pdf_parser.py`): Multi-strategy PDF text extraction
-- **Agent Graph** (`build_graph.py`): LangGraph workflow for assessment processing
-- **Assessment Tools** (`tools.py`): Calculation functions for percentiles and grade levels
-- **Benchmark Data Provider** (`grade_reader.py`): **Critical component** that loads and processes national grade-level benchmark data used by LLM tools for accurate calculations
+## 📋 Requirements
 
-### Agent Workflow
-
-1. **Subject Mapping Node**: Maps extracted subjects to official categories
-2. **Assessment Node**: Processes student data and decides on tool usage
-3. **Tool Execution**: Calculates percentiles, performing grades, and thresholds using **benchmark data from `grade_reader.py`**
-4. **Synthesis Node**: Generates the final comprehensive report
-
-### Data Flow & LLM Tool Integration
-
-The application follows this critical data flow:
-
+### Python Dependencies
 ```
-PDF → Parser → Subject Extraction → LLM Agent → Tools → grade_reader.py → Benchmark Data → Calculations → Report
+gradio>=4.0.0
+langchain-openai
+langchain-google-genai
+langchain-core
+langgraph
+pandas
+pydantic
+python-dotenv
+PyMuPDF
+llama-parse
+asyncio
 ```
 
-**Key Integration Points:**
-- **`tools.py`** contains calculation functions (`calculate_percentile`, `calculate_performing_grade`, `calculate_next_grade_threshold`)
-- **These tools are bound to the LLM** and called automatically during assessment
-- **Each tool function calls `get_grade_data()`** from `grade_reader.py` to access benchmark data
-- **`grade_reader.py` provides the single source of truth** for all national grade-level standards used in calculations
+### Environment Variables
+Create a `.env` file in the root directory:
+```
+GOOGLE_API_KEY=your_google_gemini_api_key
+LLAMA_CLOUD_API_KEY=your_llama_parse_api_key
+```
 
-## Installation 🚀
+## 🚀 Installation
 
-### Prerequisites
-
-- Python 3.8+
-- OpenAI API key or Google Gemini API key
-- LlamaParse API key (optional, for fallback parsing)
-
-### Setup
-
-1. **Clone the repository**
+1. **Clone the repository**:
    ```bash
    git clone <repository-url>
    cd student-assessment-analyzer
    ```
 
-2. **Install dependencies**
+2. **Create virtual environment**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**
-   Create a `.env` file in the root directory:
-   ```env
-   # Choose one of the following:
-   OPENAI_API_KEY=your_openai_api_key_here
-   # OR
-   GOOGLE_API_KEY=your_google_gemini_api_key_here
-   
-   # Optional (for LlamaParse fallback)
-   LLAMA_CLOUD_API_KEY=your_llamaparse_api_key_here
-   ```
+4. **Set up environment variables**:
+   - Copy `.env.example` to `.env`
+   - Add your API keys for Google Gemini and LlamaParse
 
-4. **Ensure assets directory exists**
-   ```bash
-   mkdir -p assets
-   ```
-   Place your `EOY_Grade_levels.json` benchmark data file in the `assets/` directory.
+5. **Prepare benchmark data**:
+   - Ensure `assets/EOY_Grade_levels.json` contains the grade-level benchmark data
+   - Add sample PDFs to the `assets/` directory for testing
 
-## Usage 💻
+## 🎯 Usage
 
 ### Web Interface
 
-1. **Start the application**
+1. **Start the application**:
    ```bash
    python app.py
    ```
 
-2. **Open your browser** to the displayed URL (typically `http://localhost:7860`)
+2. **Open your browser** and navigate to the provided URL (typically `http://localhost:7860`)
 
 3. **Upload and analyze**:
    - Upload an IXL Diagnostic Report PDF
-   - Select the student's grade level
+   - Select the student's grade level (1-8)
    - Enter the student's name
    - Click "Analyze Report"
 
+4. **View results**:
+   - Review the comprehensive assessment in the web interface
+   - Download the HTML report for offline viewing
+
 ### Command Line Testing
 
-For development and testing:
-
+Run the assessment engine directly:
 ```bash
 python build_graph.py
 ```
 
-This will run the agent with the example PDF in the `assets/` directory.
-
-## File Structure 📁
+## 📁 Project Structure
 
 ```
-student-assessment-analyzer/
-├── app.py                      # Gradio web interface
-├── build_graph.py             # Main agent and LangGraph workflow
-├── pdf_parser.py              # Multi-strategy PDF parsing
-├── user_input_parser.py       # Subject extraction from parsed text
-├── tools.py                   # LLM-bound calculation tools (percentiles, grades)
-├── grade_reader.py            # **CRITICAL**: Benchmark data provider for LLM tools
-├── model.py                   # LLM configuration
-├── prompts.py                 # System prompts and templates
+├── app.py                 # Gradio web interface
+├── build_graph.py         # Main agent logic and graph construction
+├── grade_reader.py        # Benchmark data loading and processing
+├── model.py              # LLM model configuration
+├── pdf_parser.py         # PDF text extraction utilities
+├── prompts.py            # System prompts for different nodes
+├── report_formatter.py   # HTML report generation
+├── tools.py              # Performance calculation tools
+├── user_input_parser.py  # PDF parsing and subject extraction
 ├── assets/
-│   ├── EOY_Grade_levels.json  # **REQUIRED**: National benchmark data
-│   └── *.pdf                  # Sample diagnostic reports
-├── .env                       # Environment variables
-└── requirements.txt           # Python dependencies
+│   ├── EOY_Grade_levels.json    # Grade-level benchmark data
+│   └── *.pdf                    # Sample diagnostic reports
+└── README.md
 ```
 
-## Key Technologies 🛠️
+## 🔧 Key Components
 
-- **[LangGraph](https://langchain-ai.github.io/langgraph/)**: Agent workflow orchestration
-- **[Gradio](https://gradio.app/)**: Web interface
-- **[PyMuPDF](https://pymupdf.readthedocs.io/)**: Primary PDF text extraction
-- **[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)**: OCR for image-based PDFs
-- **[LlamaParse](https://docs.llamaindex.ai/en/stable/llama_cloud/llama_parse/)**: Fallback PDF parsing
-- **[OpenAI](https://openai.com/) / [Google Gemini](https://deepmind.google/technologies/gemini/)**: LLM providers
-- **[Pandas](https://pandas.pydata.org/)**: Data manipulation and analysis
+### Agent Nodes
 
-## Configuration ⚙️
+- **`user_input_parser_node`**: Extracts and structures data from PDF reports
+- **`subject_mapping_node`**: Maps extracted subjects to official benchmark subjects
+- **`assessment_node`**: Coordinates performance analysis using available tools
+- **`synthesis_node`**: Generates final structured HTML reports
 
-### Model Selection
+### Tools
 
-Edit `model.py` to change the LLM provider:
+- **`calculate_all_metrics`**: Unified tool that calculates percentile, performing grade, and next grade threshold for any subject
 
-```python
-# For OpenAI
-model = ChatOpenAI(model="gpt-4o-mini")
+### Data Models
 
-# For Google Gemini (default)
-model = ChatGoogleGenerativeAI(model="gemini-2.5-flash-preview-05-20")
-```
+- **`SubjectPerformance`**: Individual subject scores and recommendations
+- **`PerformanceDashboard`**: Structured table data for report generation
+- **`AssessmentReport`**: Complete structured assessment output
 
-### Benchmark Data & LLM Tool Integration
+## 📊 Performance Metrics
 
-The application's accuracy depends on the critical relationship between `grade_reader.py` and the LLM tools:
+The application calculates three key metrics for each subject:
 
-#### How It Works:
-1. **`grade_reader.py`** loads `EOY_Grade_levels.json` and converts it to a clean Pandas DataFrame
-2. **LLM tools in `tools.py`** call `get_grade_data()` to access this standardized data
-3. **The LLM automatically invokes these tools** during assessment to perform calculations
-4. **All percentile and grade-level determinations** use this authoritative dataset
+1. **Percentile Ranking**: Student's position relative to national norms
+2. **Performing Grade Level**: Highest grade level where student meets 70th percentile
+3. **Next Grade Threshold**: Score needed to be "on track" for next grade
 
-#### Data Structure:
-The `get_grade_data()` function returns a DataFrame with columns:
-- `Subject`: Official subject names (e.g., "End-of-Year Math: Overall (K-8)")
-- `Grade`: Grade levels (K, 1, 2, ..., 12)  
-- `Percentile`: Performance percentiles (10th, 20th, ..., 99th)
-- `Score`: Benchmark scores for each grade/percentile combination
+### Percentile Bands
+- 🎉 90-100th: Outstanding!
+- ⭐ 80-89th: Excellent!
+- 🏆 70-79th: Great job!
+- 👍 60-69th: Good work!
+- 📈 50-59th: On track!
+- 💪 40-49th: Keep going!
+- 📚 30-39th: More practice needed
+- 🔧 20-29th: Needs support
+- 💡 10-19th: Let's work on this
+- 🌱 1-9th: Starting fresh
 
-#### Critical Dependencies:
-- **`calculate_percentile`** → Uses benchmark scores to determine student percentile ranking
-- **`calculate_performing_grade`** → Uses 85th percentile thresholds to find actual performing grade
-- **`calculate_next_grade_threshold`** → Uses 70th percentile scores for advancement criteria
+## 🎨 Report Features
 
-**⚠️ Important**: The LLM tools will fail if `EOY_Grade_levels.json` is missing or malformed, as they depend on `grade_reader.py` for all calculations.
+Generated reports include:
 
-#### Required JSON Structure:
+- **Key Findings**: Color-coded performance bands (Above/On/Below grade level)
+- **Overview**: 2-3 sentence performance summary
+- **Performance Dashboard**: Detailed table with scores, percentiles, and recommendations
+- **Summary**: Strengths, areas for improvement, and readiness assessment
+- **Methodology**: Data sources and calculation methods
 
-```json
-[
-  {
-    "title": "End-of-Year Math: Overall (K-8)",
-    "data": [
-      {
-        "Percentile": 10,
-        "K": 200,
-        "1": 250,
-        "2": 300,
-        ...
-      },
-      ...
-    ]
-  },
-  ...
-]
-```
+## 🔍 Data Sources
 
-## Example Output 📋
+Performance benchmarks are based on:
+- IXL's National Norms for Diagnostic Assessment
+- End-of-year grade-level expectations
+- National percentile rankings for grades K-12
 
-The application generates comprehensive reports including:
+**Citation**: IXL's ELO score rating system [National Norms for IXL's Diagnostic in Grades K-12](https://www.ixl.com/materials/us/research/National_Norms_for_IXL_s_Diagnostic_in_Grades_K-12.pdf)
 
-- **Key Findings**: Above/On/Below grade level subjects
-- **Overview**: Performance summary
-- **Current Performing Grade**: Overall grade level assessment
-- **Performance Dashboard**: Detailed HTML table with:
-  - Subject scores
-  - Performance bands (color-coded)
-  - Percentile rankings
-  - Next grade thresholds
-  - Specific skill recommendations
-- **Summary**: Strengths, improvements, and readiness assessment
+## 🛠️ Development
 
-## Development 🔧
+### Adding New Features
 
-### Adding New Tools
+1. **New Assessment Metrics**: Add functions to `tools.py`
+2. **Additional PDF Parsers**: Extend `pdf_parser.py`
+3. **Custom Report Sections**: Modify `report_formatter.py`
+4. **New Agent Nodes**: Add to `build_graph.py`
 
-1. Create tool functions in `tools.py`
-2. Add them to the `tools` list in `StudentAssessment.__init__()`
-3. Update prompts in `prompts.py` to reference new tools
-
-### Extending PDF Parsing
-
-The `EnhancedPDFParser` class supports multiple parsing strategies. To add new methods:
-
-1. Add parsing method to `pdf_parser.py`
-2. Integrate into the parsing pipeline
-3. Update adequacy checks as needed
-
-### Customizing Reports
-
-Modify `ASSESSMENT_PROMPT` in `prompts.py` to change report format, styling, or content structure.
-
-## Troubleshooting 🔍
-
-### Common Issues
-
-1. **PDF parsing fails**: Ensure PDFs contain text or clear images for OCR
-2. **Missing benchmark data**: Verify `EOY_Grade_levels.json` is in `assets/` directory
-3. **API errors**: Check your API keys in `.env` file
-4. **Tool calculation errors**: Verify subject names match benchmark data exactly
-
-### Debug Mode
-
-Enable verbose logging by adding debug prints or running:
+### Testing
 
 ```bash
+# Test PDF parsing
+python user_input_parser.py
+
+# Test grade data loading
+python grade_reader.py
+
+# Test full assessment pipeline
 python build_graph.py
 ```
 
-This runs the agent directly and shows detailed processing steps.
+### Configuration
 
-## Contributing 🤝
+- **Models**: Configure LLM models in `model.py`
+- **Prompts**: Customize system prompts in `prompts.py`
+- **UI Styling**: Modify CSS in `app.py`
+
+## 📈 Performance Considerations
+
+- **Caching**: Grade data is loaded once and reused
+- **Async Processing**: PDF parsing and analysis run asynchronously
+- **Error Handling**: Comprehensive error handling with fallbacks
+- **Memory Management**: Efficient PDF processing with cleanup
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License 📄
+## 📝 License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support 💬
+## 🙋‍♂️ Support
 
-For issues, questions, or contributions, please [create an issue](link-to-issues) or [contact the development team](contact-info).
+For questions, issues, or feature requests:
+
+1. Check the [Issues](../../issues) page
+2. Create a new issue with detailed information
+3. Include sample files and error messages when applicable
+
+## 🚀 Deployment
+
+### Local Development
+```bash
+python app.py
+```
+
+### Production Deployment
+- Configure environment variables securely
+- Use a production WSGI server (e.g., Gunicorn)
+- Set up proper logging and monitoring
+- Consider containerization with Docker
+
+## ⚠️ Important Notes
+
+- **API Keys**: Never commit API keys to version control
+- **PDF Privacy**: Ensure student data privacy and compliance
+- **Rate Limits**: Be aware of API rate limits for LLM services
+- **Data Validation**: Always validate input data before processing
 
 ---
 
-**Note**: This application is designed specifically for IXL Diagnostic Reports. For other assessment formats, you may need to modify the parsing and extraction logic.
+Built with ❤️ for educational assessment and student success.

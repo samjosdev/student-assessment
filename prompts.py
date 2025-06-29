@@ -143,10 +143,13 @@ Your job is to extract and deduplicate all subject names and scores from whateve
 PyMuPDF Output:
 {pymupdf_text}
 
+LlamaParse Output:
+{llamaparse_text}
 
 **IMPORTANT NOTES:**
 - If any parser output is empty or contains only whitespace, ignore it and work with the available content
-- Combine all available information to create the most complete subject list
+- Combine all available information from both PyMuPDF and LlamaParse to create the most complete subject list
+- If there are duplicate or conflicting subjects, deduplicate and choose the most plausible value
 
 IMPORTANT: You must respond with ONLY a valid JSON object in this exact format:
 {{

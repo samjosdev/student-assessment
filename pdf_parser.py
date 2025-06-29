@@ -9,11 +9,11 @@ class EnhancedPDFParser:
     
     def parse_pdf_report(self, file_path: str) -> dict:
         """
-        Parse PDF using only PyMuPDF for maximum speed.
+        Parse PDF using PyMuPDF and LlamaParse for maximum coverage.
         Args:
             file_path: Path to the PDF file
         Returns:
-            Dict with keys: 'pymupdf', 'ocr', 'llamaparse' (ocr and llamaparse will be empty)
+            Dict with keys: 'pymupdf',  'llamaparse'
         """
         print(f"--- Parsing PDF: {file_path} ---")
         results = {}
@@ -23,6 +23,20 @@ class EnhancedPDFParser:
         pymupdf_text = self._parse_with_pymupdf(file_path)
         results['pymupdf'] = pymupdf_text
         print(f"✅ PyMuPDF extracted {len(pymupdf_text)} characters")
+        
+        # LlamaParse
+        llamaparse_text = ''
+        try:
+            from llama_parse import LlamaParse
+            print("🔄 Using LlamaParse parser...")
+            parser = LlamaParse()
+            job = parser.parse(file_path)
+            documents = job.result()
+            llamaparse_text = documents[0].text if documents else ''
+            print(f"✅ LlamaParse extracted {len(llamaparse_text)} characters")
+        except Exception as e:
+            llamaparse_text = ''
+        results['llamaparse'] = llamaparse_text
         
         print("--- PDF Parsing Complete ---")
         return results

@@ -16,3 +16,4 @@ PyMuPDF
 paddlepaddle
 Pillow
 pdfkit
+pymupdf

@@ -24,10 +24,12 @@ def format_sections_to_report(report, student_name: str, grade: str, date: str) 
             student_grade_num = 0 if grade.upper() == 'K' else int(grade)
             # Extract performing grade number from the performing_grade text
             import re
-            pg_text = row.performing_grade.lower()
+            pg_text = str(row.performing_grade).lower().strip()
             match = re.search(r'(\d+)(?:st|nd|rd|th)?\s*grade', pg_text)
             if match:
                 performing_grade_num = int(match.group(1))
+            elif pg_text.isdigit():
+                performing_grade_num = int(pg_text)
             elif 'k' in pg_text:
                 performing_grade_num = 0
             else:

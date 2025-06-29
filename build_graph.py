@@ -100,21 +100,23 @@ class StudentAssessment(BaseModel):
         print("=" * 50)
         print("🔍 USER INPUT PARSER NODE")
         print("=" * 50)
+        
         pdf_path = state["pdf_path"]
         
         # 1. Get raw text using the parsing function from user_input_parser.py
-        pymupdf_text = parse_pdf_to_text(pdf_path)
-        
-        if not pymupdf_text:
+        result = parse_pdf_to_text(pdf_path)
+        if not result:
             print("--- PDF parsing failed, returning empty list ---")
             return {"student_performance_data": []}
+        pymupdf_text, llamaparse_text = result
 
         # 2. Use a structured LLM call to extract subjects and scores from the parsed text
         print("--- Extracting subjects and scores from parsed text ---")
         extraction_llm = get_extraction_llm().with_structured_output(PerformanceInfo)
 
         prompt = MULTI_PARSER_EXTRACTION_PROMPT.format(
-            pymupdf_text=pymupdf_text
+            pymupdf_text=pymupdf_text,
+            llamaparse_text=llamaparse_text
         )
 
         try:

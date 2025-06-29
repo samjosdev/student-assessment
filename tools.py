@@ -63,11 +63,11 @@ def calculate_performing_grade(subject: str, student_score: int, current_grade: 
         # Use .copy() to avoid the SettingWithCopyWarning
         benchmark_data = grade_df[
             (grade_df['Subject'] == subject) & 
-            (grade_df['Percentile'] == 85)
+            (grade_df['Percentile'] == 70)
         ].copy()
 
         if benchmark_data.empty:
-            return f"No 85th percentile data found for Subject '{subject}'"
+            return f"No 70th percentile data found for Subject '{subject}'"
 
         # Ensure grade column is string before sorting
         benchmark_data['Grade'] = benchmark_data['Grade'].astype(str)
